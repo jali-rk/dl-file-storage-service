@@ -1,7 +1,8 @@
 package com.dopaminelite.dl_file_storage_service.controller;
 
+import com.dopaminelite.dl_file_storage_service.constant.SignedUrlIntent;
 import com.dopaminelite.dl_file_storage_service.dto.*;
-import com.dopaminelite.dl_file_storage_service.entity.FileContextType;
+import com.dopaminelite.dl_file_storage_service.constant.FileContextType;
 import com.dopaminelite.dl_file_storage_service.service.FileStorageService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;

@@ -1,8 +1,15 @@
 package com.dopaminelite.dl_file_storage_service.service;
 
 import com.dopaminelite.dl_file_storage_service.config.StorageProperties;
-import com.dopaminelite.dl_file_storage_service.dto.*;
-import com.dopaminelite.dl_file_storage_service.entity.FileContextType;
+import com.dopaminelite.dl_file_storage_service.constant.FileContextType;
+import com.dopaminelite.dl_file_storage_service.constant.SignedUrlIntent;
+import com.dopaminelite.dl_file_storage_service.dto.BulkFileSignedUrlRequestItem;
+import com.dopaminelite.dl_file_storage_service.dto.BulkFileSignedUrlResponse;
+import com.dopaminelite.dl_file_storage_service.dto.BulkFileSignedUrlResponseItem;
+import com.dopaminelite.dl_file_storage_service.dto.FileListResponse;
+import com.dopaminelite.dl_file_storage_service.dto.FileSignedUrlResponse;
+import com.dopaminelite.dl_file_storage_service.dto.FileUploadResponse;
+import com.dopaminelite.dl_file_storage_service.dto.StoredFileDto;
 import com.dopaminelite.dl_file_storage_service.entity.StoredFile;
 import com.dopaminelite.dl_file_storage_service.exception.BadRequestException;
 import com.dopaminelite.dl_file_storage_service.exception.NotFoundException;
@@ -41,7 +48,6 @@ public class FileStorageServiceImpl implements FileStorageService {
         long sizeBytes = file.getSize();
         String storedFileName = UUID.randomUUID() + "_" + originalName;
         String bucket = contextType.name().toLowerCase();
-        String bucketPath = bucket; // simplistic bucket mapping
         byte[] content;
         try {
             content = file.getBytes();
@@ -50,7 +56,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
         String storagePath;
         try {
-            storagePath = storageProvider.store(content, storedFileName, bucketPath);
+            storagePath = storageProvider.store(content, storedFileName, bucket);
         } catch (IOException e) {
             throw new BadRequestException("Failed to store file: " + e.getMessage());
         }
@@ -64,7 +70,7 @@ public class FileStorageServiceImpl implements FileStorageService {
                 .contextType(contextType)
                 .contextRefId(contextRefId)
                 .createdByUserId(createdByUserId)
-                .sha256(null) // TODO compute checksum if needed
+                .sha256(null)
                 .isDeleted(false)
                 .build();
         entity = repository.save(entity);
@@ -93,7 +99,7 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     public void softDeleteFile(UUID fileId) {
         StoredFile entity = repository.findById(fileId).orElseThrow(() -> new NotFoundException("File not found: " + fileId));
-        entity.setDeleted(true); // use Lombok-generated setter for boolean field 'isDeleted'
+        entity.setDeleted(true);
         repository.save(entity);
     }
 

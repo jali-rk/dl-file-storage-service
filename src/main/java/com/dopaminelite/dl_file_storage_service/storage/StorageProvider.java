@@ -1,6 +1,7 @@
 package com.dopaminelite.dl_file_storage_service.storage;
 
-import com.dopaminelite.dl_file_storage_service.dto.SignedUrlIntent;
+import com.dopaminelite.dl_file_storage_service.constant.SignedUrlIntent;
+
 import java.io.IOException;
 
 public interface StorageProvider {

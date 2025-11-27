@@ -1,4 +1,4 @@
-package com.dopaminelite.dl_file_storage_service.entity;
+package com.dopaminelite.dl_file_storage_service.constant;
 
 public enum FileContextType {
     PAYMENT_SUBMISSION,

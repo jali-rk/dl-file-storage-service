@@ -1,6 +1,11 @@
 package com.dopaminelite.dl_file_storage_service.dto;
 
-import lombok.*;
+import com.dopaminelite.dl_file_storage_service.constant.SignedUrlIntent;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.UUID;
 
 @Data

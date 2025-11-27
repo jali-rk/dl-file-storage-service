@@ -1,9 +1,12 @@
 package com.dopaminelite.dl_file_storage_service.dto;
 
-import com.dopaminelite.dl_file_storage_service.entity.FileContextType;
-import lombok.*;
+import com.dopaminelite.dl_file_storage_service.constant.FileContextType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -22,7 +25,7 @@ public class StoredFileDto {
     private FileContextType contextType;
     private String contextRefId;
     private UUID createdByUserId;
-    private OffsetDateTime createdAt;
-    private OffsetDateTime updatedAt;
+    private Instant createdAt;
+    private Instant updatedAt;
     private boolean isDeleted;
 }

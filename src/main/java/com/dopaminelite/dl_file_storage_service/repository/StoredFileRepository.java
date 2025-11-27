@@ -1,6 +1,6 @@
 package com.dopaminelite.dl_file_storage_service.repository;
 
-import com.dopaminelite.dl_file_storage_service.entity.FileContextType;
+import com.dopaminelite.dl_file_storage_service.constant.FileContextType;
 import com.dopaminelite.dl_file_storage_service.entity.StoredFile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

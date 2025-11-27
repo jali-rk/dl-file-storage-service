@@ -1,24 +1,33 @@
 package com.dopaminelite.dl_file_storage_service.entity;
 
+import com.dopaminelite.dl_file_storage_service.constant.FileContextType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "stored_files", indexes = {
-        @Index(name = "idx_context_type_ref", columnList = "context_type, context_ref_id"),
-        @Index(name = "idx_created_by", columnList = "created_by_user_id")
-})
+@Table(
+        name = "dopaminelite_stored_files",
+        indexes = {
+                @Index(name = "idx_context_type_ref", columnList = "context_type, context_ref_id"),
+                @Index(name = "idx_created_by", columnList = "created_by_user_id")
+        }
+)
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 @SQLRestriction("is_deleted = false")
 public class StoredFile {
+
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -54,25 +63,14 @@ public class StoredFile {
     @Column(name = "created_by_user_id", nullable = false)
     private UUID createdByUserId;
 
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
 
+    @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
+    private Instant updatedAt;
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
-
-    @PrePersist
-    public void prePersist() {
-        if (id == null) id = UUID.randomUUID();
-        createdAt = OffsetDateTime.now();
-        updatedAt = createdAt;
-        isDeleted = false;
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        updatedAt = OffsetDateTime.now();
-    }
 }
