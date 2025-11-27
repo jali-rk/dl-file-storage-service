@@ -92,13 +92,13 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     @Transactional(readOnly = true)
     public StoredFileDto getFile(UUID fileId) {
-        StoredFile entity = repository.findById(fileId).orElseThrow(() -> new NotFoundException("File not found: " + fileId));
+        StoredFile entity = repository.findByIdAndIsDeletedFalse(fileId).orElseThrow(() -> new NotFoundException("File not found: " + fileId));
         return FileMapper.toDto(entity);
     }
 
     @Override
     public void softDeleteFile(UUID fileId) {
-        StoredFile entity = repository.findById(fileId).orElseThrow(() -> new NotFoundException("File not found: " + fileId));
+        StoredFile entity = repository.findByIdAndIsDeletedFalse(fileId).orElseThrow(() -> new NotFoundException("File not found: " + fileId));
         entity.setDeleted(true);
         repository.save(entity);
     }
@@ -106,7 +106,7 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     @Transactional(readOnly = true)
     public FileSignedUrlResponse generateSignedUrl(UUID fileId, SignedUrlIntent intent, Integer expiresInSeconds) {
-        StoredFile entity = repository.findById(fileId).orElseThrow(() -> new NotFoundException("File not found: " + fileId));
+        StoredFile entity = repository.findByIdAndIsDeletedFalse(fileId).orElseThrow(() -> new NotFoundException("File not found: " + fileId));
         int exp = expiresInSeconds != null ? expiresInSeconds : storageProperties.getSignedUrlDefaultExpirationSeconds();
         String url = storageProvider.generateSignedUrl(entity.getStoragePath(), intent, exp);
         return FileSignedUrlResponse.builder()
@@ -125,7 +125,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         int exp = expiresInSeconds != null ? expiresInSeconds : storageProperties.getSignedUrlDefaultExpirationSeconds();
         List<BulkFileSignedUrlResponseItem> responses = new ArrayList<>();
         for (BulkFileSignedUrlRequestItem item : items) {
-            StoredFile entity = repository.findById(item.getFileId()).orElseThrow(() -> new NotFoundException("File not found: " + item.getFileId()));
+            StoredFile entity = repository.findByIdAndIsDeletedFalse(item.getFileId()).orElseThrow(() -> new NotFoundException("File not found: " + item.getFileId()));
             String url = storageProvider.generateSignedUrl(entity.getStoragePath(), item.getIntent() == null ? SignedUrlIntent.VIEW : item.getIntent(), exp);
             responses.add(BulkFileSignedUrlResponseItem.builder()
                     .fileId(entity.getId())
@@ -146,17 +146,17 @@ public class FileStorageServiceImpl implements FileStorageService {
         PageRequest pr = PageRequest.of(page, limit);
         Page<StoredFile> result;
         if (createdByUserId != null && contextType != null && contextRefId != null) {
-            result = repository.findByCreatedByUserIdAndContextTypeAndContextRefId(createdByUserId, contextType, contextRefId, pr);
+            result = repository.findByCreatedByUserIdAndContextTypeAndContextRefIdAndIsDeletedFalse(createdByUserId, contextType, contextRefId, pr);
         } else if (createdByUserId != null && contextType != null) {
-            result = repository.findByCreatedByUserIdAndContextType(createdByUserId, contextType, pr);
+            result = repository.findByCreatedByUserIdAndContextTypeAndIsDeletedFalse(createdByUserId, contextType, pr);
         } else if (createdByUserId != null) {
-            result = repository.findByCreatedByUserId(createdByUserId, pr);
+            result = repository.findByCreatedByUserIdAndIsDeletedFalse(createdByUserId, pr);
         } else if (contextType != null && contextRefId != null) {
-            result = repository.findByContextTypeAndContextRefId(contextType, contextRefId, pr);
+            result = repository.findByContextTypeAndContextRefIdAndIsDeletedFalse(contextType, contextRefId, pr);
         } else if (contextType != null) {
-            result = repository.findByContextType(contextType, pr);
+            result = repository.findByContextTypeAndIsDeletedFalse(contextType, pr);
         } else {
-            result = repository.findAll(pr);
+            result = repository.findByIsDeletedFalse(pr);
         }
         List<StoredFileDto> items = result.getContent().stream().map(FileMapper::toDto).toList();
         return FileListResponse.builder().items(items).total(result.getTotalElements()).build();

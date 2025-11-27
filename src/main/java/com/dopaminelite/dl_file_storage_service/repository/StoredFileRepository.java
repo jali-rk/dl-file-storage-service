@@ -6,24 +6,31 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public interface StoredFileRepository extends JpaRepository<StoredFile, UUID> {
-    Page<StoredFile> findByCreatedByUserIdAndContextTypeAndContextRefId(
+    Page<StoredFile> findByCreatedByUserIdAndContextTypeAndContextRefIdAndIsDeletedFalse(
             UUID createdByUserId,
             FileContextType contextType,
             String contextRefId,
             Pageable pageable);
 
-    Page<StoredFile> findByCreatedByUserIdAndContextType(
+    Page<StoredFile> findByCreatedByUserIdAndContextTypeAndIsDeletedFalse(
             UUID createdByUserId,
             FileContextType contextType,
             Pageable pageable);
 
-    Page<StoredFile> findByCreatedByUserId(UUID createdByUserId, Pageable pageable);
+    Page<StoredFile> findByCreatedByUserIdAndIsDeletedFalse(UUID createdByUserId, Pageable pageable);
 
-    Page<StoredFile> findByContextTypeAndContextRefId(FileContextType contextType, String contextRefId, Pageable pageable);
+    Page<StoredFile> findByContextTypeAndContextRefIdAndIsDeletedFalse(
+            FileContextType contextType,
+            String contextRefId,
+            Pageable pageable);
 
-    Page<StoredFile> findByContextType(FileContextType contextType, Pageable pageable);
+    Page<StoredFile> findByContextTypeAndIsDeletedFalse(FileContextType contextType, Pageable pageable);
+
+    Page<StoredFile> findByIsDeletedFalse(Pageable pageable);
+
+    Optional<StoredFile> findByIdAndIsDeletedFalse(UUID id);
 }
-
