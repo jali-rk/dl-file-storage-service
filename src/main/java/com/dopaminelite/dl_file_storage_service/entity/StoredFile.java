@@ -2,8 +2,11 @@ package com.dopaminelite.dl_file_storage_service.entity;
 
 import com.dopaminelite.dl_file_storage_service.constant.FileContextType;
 import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.SQLRestriction;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -25,10 +28,10 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
-@SQLRestriction("is_deleted = false")
 public class StoredFile {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
