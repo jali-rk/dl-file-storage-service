@@ -61,7 +61,7 @@ gradlew.bat bootRun
 - Secure endpoints with service authentication (API key header) per OpenAPI.
 package com.dopaminelite.dl_file_storage_service.dto;
 
-import com.dopaminelite.dl_file_storage_service.entity.FileContextType;
+import com.dopaminelite.dl_file_storage_service.constant.FileContextType;
 import lombok.*;
 
 import java.time.OffsetDateTime;

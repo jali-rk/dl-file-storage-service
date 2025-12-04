@@ -1,0 +1,471 @@
+openapi: 3.0.3
+info:
+  title: DopamineLite File Storage Service API
+  version: "1.0.0"
+  description: |
+    File Storage microservice for DopamineLite.
+
+    Responsibilities:
+      - Receive and store files (e.g., payment proofs, issue screenshots/videos).
+      - Manage file metadata and ownership.
+      - Generate pre-signed URLs for secure download/view.
+      - Provide bulk URL generation for sets of file IDs.
+
+    This service is called only by the BFF and other backend microservices.
+
+servers:
+  - url: https://file-service.internal/api/v1
+
+tags:
+  - name: Files
+    description: File upload, metadata, and URL generation
+
+security:
+  - serviceAuth: []
+
+components:
+  securitySchemes:
+    serviceAuth:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+
+  parameters:
+    PaginationLimit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    PaginationOffset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+  schemas:
+    ErrorObject:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    FileContextType:
+      type: string
+      description: "High-level usage context so ops can separate buckets/folders."
+      enum:
+        - PAYMENT_SUBMISSION
+        - ISSUE_ATTACHMENT
+        - OTHER
+
+    StoredFile:
+      type: object
+      description: "Internal file metadata stored by the service."
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalFileName:
+          type: string
+        storedFileName:
+          type: string
+          description: "Name used in underlying storage (e.g., S3 key leaf)."
+        mimeType:
+          type: string
+          example: "application/pdf"
+        sizeBytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+          nullable: true
+          description: "Optional checksum for de-duplication/integrity."
+        bucket:
+          type: string
+          description: "Logical or physical bucket/container."
+        storagePath:
+          type: string
+          description: "Full path/key within storage backend."
+        contextType:
+          $ref: '#/components/schemas/FileContextType'
+        contextRefId:
+          type: string
+          nullable: true
+          description: "Optional ID linking this file to domain entity (submissionId, issueId, etc.)."
+        createdByUserId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        isDeleted:
+          type: boolean
+          description: "Soft delete flag."
+      required:
+        - id
+        - originalFileName
+        - storedFileName
+        - mimeType
+        - sizeBytes
+        - bucket
+        - storagePath
+        - contextType
+        - createdByUserId
+        - createdAt
+        - updatedAt
+        - isDeleted
+
+    FileUploadResponse:
+      type: object
+      description: |
+        Response returned to BFF after upload.
+        BFF maps this to its own UploadedFile (fileId, fileName, fileType, url).
+      properties:
+        file:
+          $ref: '#/components/schemas/StoredFile'
+        signedUrl:
+          type: string
+          description: "Optional immediate pre-signed URL for viewing/downloading."
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Expiration time for this signedUrl (if provided)."
+      required:
+        - file
+
+    FileSignedUrlResponse:
+      type: object
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        url:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - fileId
+        - url
+        - expiresAt
+
+    BulkFileSignedUrlRequestItem:
+      type: object
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        intent:
+          type: string
+          description: "Client intent helps tune headers (download vs inline)."
+          enum: [DOWNLOAD, VIEW]
+          default: VIEW
+      required:
+        - fileId
+
+    BulkFileSignedUrlResponseItem:
+      allOf:
+        - $ref: '#/components/schemas/FileSignedUrlResponse'
+
+    BulkFileSignedUrlResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BulkFileSignedUrlResponseItem'
+      required:
+        - items
+
+paths:
+  #################################
+  # FILE UPLOAD
+  #################################
+  /files:
+    post:
+      tags: [Files]
+      summary: Upload a file
+      description: |
+        Used by BFF for:
+
+          - Generic `/files/upload` endpoint to upload:
+              * Issue attachments (screenshots, videos)
+              * Other supporting documents
+          - Payment submission flows (BFF first uploads, then passes file refs to Payment Service).
+
+        Flow:
+          - BFF authenticates the calling user.
+          - BFF forwards the file + context information to this endpoint.
+          - File Storage Service:
+              * stores the file in backend (e.g., S3)
+              * creates metadata record
+              * optionally generates a pre-signed URL in `signedUrl`
+
+        BFF then maps the response to its own UploadedFile:
+          - fileId = file.id
+          - fileName = file.originalFileName
+          - fileType = file.mimeType
+          - url = signedUrl (or via later signed-url call)
+      security:
+        - serviceAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                createdByUserId:
+                  type: string
+                  format: uuid
+                  description: "ID of the user uploading the file (from JWT/BFF)."
+                contextType:
+                  $ref: '#/components/schemas/FileContextType'
+                contextRefId:
+                  type: string
+                  nullable: true
+                  description: "Optional domain reference (e.g., submissionId, issueId)."
+              required:
+                - file
+                - createdByUserId
+                - contextType
+      responses:
+        '201':
+          description: File stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+        '400':
+          description: Invalid upload (file too large/invalid type, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorObject'
+
+    get:
+      tags: [Files]
+      summary: List files (admin/ops use)
+      description: |
+        Optional: list files for operational tools or debugging.
+        Not expected to be used frequently by BFF for normal flows.
+      security:
+        - serviceAuth: []
+      parameters:
+        - name: createdByUserId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: contextType
+          in: query
+          schema:
+            $ref: '#/components/schemas/FileContextType'
+        - name: contextRefId
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PaginationLimit'
+        - $ref: '#/components/parameters/PaginationOffset'
+      responses:
+        '200':
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoredFile'
+                  total:
+                    type: integer
+
+  #################################
+  # FILE METADATA
+  #################################
+  /files/{fileId}:
+    get:
+      tags: [Files]
+      summary: Get file metadata by ID
+      description: |
+        Used by BFF when it needs details about a file (for logs, audit, or UI).
+
+        Note: For frontend download/view, BFF should use the signed-url endpoints
+        and expose only those URLs to MFEs.
+      security:
+        - serviceAuth: []
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: File metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoredFile'
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorObject'
+
+    delete:
+      tags: [Files]
+      summary: Soft delete a file
+      description: |
+        Marks a file as deleted (isDeleted=true) and optionally revokes access.
+
+        Usually called only by admin tools or cleanup jobs,
+        not during normal student/admin flows.
+      security:
+        - serviceAuth: []
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: File soft-deleted
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorObject'
+
+  #################################
+  # SINGLE SIGNED URL
+  #################################
+  /files/{fileId}/signed-url:
+    get:
+      tags: [Files]
+      summary: Generate a pre-signed URL for a file
+      description: |
+        Used by BFF when returning file info to MFEs.
+
+        Examples:
+          - Student / Admin viewing payment proof.
+          - Viewing issue attachments.
+
+        BFF’s UploadedFile.url is typically the `url` returned here.
+
+        Security:
+          - Only BFF and trusted services can call this.
+          - Pre-signed URL is time-limited (expiresAt).
+      security:
+        - serviceAuth: []
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: intent
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [DOWNLOAD, VIEW]
+            default: VIEW
+          description: |
+            - VIEW: content-disposition inline
+            - DOWNLOAD: content-disposition attachment
+        - name: expiresInSeconds
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 60
+            maximum: 86400
+            default: 900
+          description: "Lifetime of the signed URL, in seconds."
+      responses:
+        '200':
+          description: Signed URL for the file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileSignedUrlResponse'
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorObject'
+
+  #################################
+  # BULK SIGNED URLS
+  #################################
+  /files/signed-urls:
+    post:
+      tags: [Files]
+      summary: Generate signed URLs for multiple files
+      description: |
+        Used by BFF when it needs URLs for multiple file references at once:
+
+          - Payment submissions with multiple proof documents.
+          - Issues with several attachments.
+
+        Input:
+          - List of fileIds with optional intent (DOWNLOAD/VIEW).
+
+        Output:
+          - List of (fileId, url, expiresAt) objects.
+      security:
+        - serviceAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/BulkFileSignedUrlRequestItem'
+              required:
+                - items
+      responses:
+        '200':
+          description: Signed URLs for requested files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkFileSignedUrlResponse'
+        '400':
+          description: Invalid request (e.g., too many fileIds)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorObject'
