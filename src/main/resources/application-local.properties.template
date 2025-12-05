@@ -1,0 +1,21 @@
+# Local Development Configuration Template for S3
+# Copy this file to application-local.properties and fill in your actual values
+# DO NOT commit application-local.properties to version control!
+
+# Database Configuration (already configured in main application.properties)
+# spring.datasource.url=jdbc:postgresql://localhost:5432/dopaminelite
+# spring.datasource.username=postgres
+# spring.datasource.password=admin
+
+# S3 Configuration - REQUIRED
+# Replace these with your actual AWS S3 details
+storage.s3.bucket-name=your-bucket-name-here
+storage.s3.region=us-east-1
+storage.s3.access-key-id=YOUR_AWS_ACCESS_KEY_ID_HERE
+storage.s3.secret-access-key=YOUR_AWS_SECRET_ACCESS_KEY_HERE
+
+# Optional: Custom S3 endpoint (for MinIO, DigitalOcean Spaces, etc.)
+# storage.s3.endpoint=https://your-custom-endpoint.com
+
+# Signed URL expiration (optional, defaults to 900 seconds / 15 minutes)
+# storage.signed-url.default-expiration-seconds=900

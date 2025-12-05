@@ -1,6 +1,5 @@
 package com.dopaminelite.dl_file_storage_service.config;
 
-import com.dopaminelite.dl_file_storage_service.storage.LocalStorageProvider;
 import com.dopaminelite.dl_file_storage_service.storage.S3StorageProvider;
 import com.dopaminelite.dl_file_storage_service.storage.StorageProvider;
 import lombok.RequiredArgsConstructor;
@@ -27,14 +26,8 @@ public class StorageConfig {
 
     @Bean
     public StorageProvider storageProvider() {
-        String provider = properties.getProvider();
-        log.info("Initializing storage provider: {}", provider);
-
-        if ("s3".equalsIgnoreCase(provider)) {
-            return createS3StorageProvider();
-        } else {
-            return new LocalStorageProvider(properties.getLocalBasePath());
-        }
+        log.info("Initializing S3 storage provider");
+        return createS3StorageProvider();
     }
 
     private StorageProvider createS3StorageProvider() {
@@ -44,11 +37,16 @@ public class StorageConfig {
             throw new IllegalStateException("S3 bucket name is required when using S3 storage provider");
         }
 
+        if (s3Props.getRegion() == null || s3Props.getRegion().isEmpty()) {
+            throw new IllegalStateException("S3 region is required when using S3 storage provider");
+        }
+
         S3ClientBuilder s3ClientBuilder = S3Client.builder()
                 .region(Region.of(s3Props.getRegion()));
 
         // Configure credentials if provided
-        if (s3Props.getAccessKeyId() != null && s3Props.getSecretAccessKey() != null) {
+        if (s3Props.getAccessKeyId() != null && !s3Props.getAccessKeyId().isEmpty() &&
+            s3Props.getSecretAccessKey() != null && !s3Props.getSecretAccessKey().isEmpty()) {
             AwsBasicCredentials credentials = AwsBasicCredentials.create(
                     s3Props.getAccessKeyId(),
                     s3Props.getSecretAccessKey()
@@ -71,7 +69,8 @@ public class StorageConfig {
         S3Presigner.Builder presignerBuilder = S3Presigner.builder()
                 .region(Region.of(s3Props.getRegion()));
 
-        if (s3Props.getAccessKeyId() != null && s3Props.getSecretAccessKey() != null) {
+        if (s3Props.getAccessKeyId() != null && !s3Props.getAccessKeyId().isEmpty() &&
+            s3Props.getSecretAccessKey() != null && !s3Props.getSecretAccessKey().isEmpty()) {
             AwsBasicCredentials credentials = AwsBasicCredentials.create(
                     s3Props.getAccessKeyId(),
                     s3Props.getSecretAccessKey()
@@ -85,6 +84,7 @@ public class StorageConfig {
 
         S3Presigner s3Presigner = presignerBuilder.build();
 
+        log.info("S3 storage configured with bucket: {}, region: {}", s3Props.getBucketName(), s3Props.getRegion());
         return new S3StorageProvider(s3Client, s3Presigner, s3Props.getBucketName());
     }
 }

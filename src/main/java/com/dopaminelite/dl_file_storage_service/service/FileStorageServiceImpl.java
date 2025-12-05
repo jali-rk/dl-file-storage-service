@@ -88,7 +88,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         OffsetDateTime expiresAt = null;
 
         if (generateSignedUrl) {
-            int exp = storageProperties.getSignedUrlDefaultExpirationSeconds();
+            int exp = storageProperties.getSignedUrl().getDefaultExpirationSeconds();
             signedUrl = storageProvider.generateSignedUrl(entity.getStoragePath(), SignedUrlIntent.VIEW, exp);
             expiresAt = OffsetDateTime.now().plusSeconds(exp);
             log.debug("Generated signed URL for fileId: {}", entity.getId());
@@ -135,7 +135,7 @@ public class FileStorageServiceImpl implements FileStorageService {
                     log.error("File not found for signed URL: id: {}", fileId);
                     return new NotFoundException("File not found: " + fileId);
                 });
-        int exp = expiresInSeconds != null ? expiresInSeconds : storageProperties.getSignedUrlDefaultExpirationSeconds();
+        int exp = expiresInSeconds != null ? expiresInSeconds : storageProperties.getSignedUrl().getDefaultExpirationSeconds();
         String url = storageProvider.generateSignedUrl(entity.getStoragePath(), intent, exp);
         log.debug("Signed URL generated for fileId: {}", fileId);
         return FileSignedUrlResponse.builder()
@@ -152,7 +152,7 @@ public class FileStorageServiceImpl implements FileStorageService {
             log.error("Empty items list for bulk signed URL generation");
             throw new BadRequestException("Items list must not be empty");
         }
-        int exp = expiresInSeconds != null ? expiresInSeconds : storageProperties.getSignedUrlDefaultExpirationSeconds();
+        int exp = expiresInSeconds != null ? expiresInSeconds : storageProperties.getSignedUrl().getDefaultExpirationSeconds();
         List<BulkFileSignedUrlResponseItem> responses = new ArrayList<>();
         for (BulkFileSignedUrlRequestItem item : items) {
             StoredFile entity = repository.findByIdAndIsDeletedFalse(item.getFileId())

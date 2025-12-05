@@ -3,17 +3,25 @@ package com.dopaminelite.dl_file_storage_service.config;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "storage")
 public class StorageProperties {
-    private String provider = "local"; // "local" or "s3"
-    private String localBasePath = "files-storage"; // storage.local.base-path
-    private int signedUrlDefaultExpirationSeconds = 900; // storage.signed-url.default-expiration-seconds
+
+    @NestedConfigurationProperty
+    private SignedUrlProperties signedUrl = new SignedUrlProperties();
 
     // S3 configuration
+    @NestedConfigurationProperty
     private S3Properties s3 = new S3Properties();
+
+    @Getter
+    @Setter
+    public static class SignedUrlProperties {
+        private int defaultExpirationSeconds = 900;
+    }
 
     @Getter
     @Setter
