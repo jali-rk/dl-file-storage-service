@@ -8,7 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @Disabled("Disabled until a test PostgreSQL instance is available or replaced with testcontainers")
 class DlFileStorageServiceApplicationTests {
 
-	@Test
+//	@Test
 	void contextLoads() {
 	}
 
