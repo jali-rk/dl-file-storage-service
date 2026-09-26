@@ -1,0 +1,89 @@
+name: Build & Deploy to ECS
+
+on:
+  push:
+    branches:
+      - sbx
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # sbx-only for now — this service has no dev/prod pipeline yet.
+    environment: sbx
+
+    if: ${{ github.ref_name == 'sbx' }}
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Set up Java 21 (Gradle)
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # 3. Verify Java version (safety check)
+      - name: Verify Java version
+        run: java -version
+
+      # 4. Build the Spring Boot application
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build (skip tests)
+        run: ./gradlew build -x test
+
+      # 5. Configure AWS credentials (from environment-scoped secrets)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Normalize and compute ECR values from GitHub Environment vars.
+      - name: Compute image URI
+        shell: bash
+        run: |
+          ACCOUNT_ID=$(echo -n "${{ vars.AWS_ACCOUNT_ID }}" | tr -d '\r\n' | xargs)
+          REGION=$(echo -n "${{ vars.AWS_REGION }}" | tr -d '\r\n' | xargs)
+          REPO=$(echo -n "${{ vars.ECR_REPOSITORY }}" | tr -d '\r\n' | xargs)
+
+          echo "AWS Account ID: $ACCOUNT_ID"
+          echo "AWS Region: $REGION"
+          echo "ECR Repository: $REPO"
+
+          if [ -z "$ACCOUNT_ID" ] || [ -z "$REGION" ] || [ -z "$REPO" ]; then
+            echo "Error: One or more required variables are empty"
+            echo "ACCOUNT_ID: '$ACCOUNT_ID'"
+            echo "REGION: '$REGION'"
+            echo "REPO: '$REPO'"
+            exit 1
+          fi
+
+          echo "ECR_REPOSITORY=$REPO" >> "$GITHUB_ENV"
+          echo "ECR_REGISTRY=${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com" >> "$GITHUB_ENV"
+          echo "IMAGE_URI=${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO}" >> "$GITHUB_ENV"
+
+      # 6. Login Docker to Amazon ECR
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 7. Build and push Docker image to ECR
+      - name: Build & push Docker image (latest)
+        run: |
+          docker build -t "$IMAGE_URI:latest" .
+          docker push "$IMAGE_URI:latest"
+
+      # 8. Force ECS service redeploy so it pulls the new image
+      - name: Force ECS service redeploy
+        run: |
+          aws ecs update-service \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --service ${{ vars.ECS_SERVICE }} \
+            --force-new-deployment
